@@ -41,17 +41,27 @@ func main() {
 	window := gocv.NewWindow("GoView")
 	defer window.Close()
 
-	input := gocv.NewMat()
-	defer input.Close()
+	var input, output gocv.Mat
+	raw_input := gocv.NewMat()
 
-	output := gocv.NewMat()
+	defer raw_input.Close()
+	defer input.Close()
 	defer output.Close()
 
 	for {
-		webcam.Read(&input)
+		// Reading input from camera and converting into a grayscale image
+		webcam.Read(&raw_input)
+
+		input = gocv.NewMat()
+		gocv.CvtColor(raw_input, &input, gocv.ColorRGBToGray)
+
+		// Applying a filter on the image
 		output = sobelFilter(&input)
+
+		// Displaying the output image
 		window.IMShow(output)
 
+		// Checking if a key has been stroked
 		if window.WaitKey(1) >= 0 {
 			break
 		}
