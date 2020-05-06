@@ -20,7 +20,7 @@ func NewFacebase() Facebase {
 	}
 }
 
-func (f *Facebase) AddFace(name string, face gocv.Mat) (err error, success bool) {
+func (f *Facebase) AddFace(name string, face gocv.Mat) (error, bool) {
 	f.Lock()
 
 	if _, alreadySaved := f.faces[name]; alreadySaved {
@@ -35,6 +35,19 @@ func (f *Facebase) AddFace(name string, face gocv.Mat) (err error, success bool)
 	f.Lock()
 	f.faces[name] = keypoints
 	f.Unlock()
+
+	return nil, true
+}
+
+func (f *Facebase) RemoveFace(name string) (error, bool) {
+	f.Lock()
+	defer f.Unlock()
+
+	if _, exists := f.faces[name]; !exists {
+		return errors.New("Face is not registered in database!"), false
+	}
+
+	delete(f.faces, name)
 
 	return nil, true
 }
