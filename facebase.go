@@ -8,33 +8,36 @@ import (
 )
 
 type Facebase struct {
-	detector gocv.FastFeatureDetector
-	faces    map[string][]gocv.KeyPoint
+	detector gocv.BRISK
+	faces    map[string]faceEntity
 	sync.Mutex
+}
+
+type faceEntity struct {
+	keypoints   []gocv.KeyPoint
+	descriptors gocv.Mat
 }
 
 func NewFacebase() Facebase {
 	return Facebase{
-		detector: gocv.NewFastFeatureDetector(),
-		faces:    make(map[string][]gocv.KeyPoint),
+		detector: gocv.NewBRISK(),
+		faces:    make(map[string]faceEntity),
 	}
 }
 
 func (f *Facebase) AddFace(name string, face gocv.Mat) (error, bool) {
 	f.Lock()
+	defer f.Unlock()
 
 	if _, alreadySaved := f.faces[name]; alreadySaved {
 		return errors.New("Face already registered in the facebase!"), false
 	}
-	f.faces[name] = make([]gocv.KeyPoint, 0)
 
-	f.Unlock()
-
-	keypoints := f.detector.Detect(face)
-
-	f.Lock()
-	f.faces[name] = keypoints
-	f.Unlock()
+	keypoints, descriptors := f.detector.DetectAndCompute(face, gocv.NewMat())
+	f.faces[name] = faceEntity{
+		keypoints:   keypoints,
+		descriptors: descriptors,
+	}
 
 	return nil, true
 }
