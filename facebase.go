@@ -38,3 +38,7 @@ func (f *Facebase) AddFace(name string, face gocv.Mat) (err error, success bool)
 
 	return nil, true
 }
+
+func (f *Facebase) Close() {
+	f.detector.Close()
+}
