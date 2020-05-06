@@ -32,14 +32,14 @@ func sobelFilter(input *gocv.Mat) (output gocv.Mat) {
 }
 
 func main() {
-	fmt.Println("Launching GoView...")
+	fmt.Println("Launching StrangeView...")
 
 	webcam, err := gocv.VideoCaptureDevice(0)
 	if err != nil {
 		panic("Unable to retrieve the video capture device!")
 	}
 
-	window := gocv.NewWindow("GoView")
+	window := gocv.NewWindow("StrangeView")
 	defer window.Close()
 
 	var input, output gocv.Mat

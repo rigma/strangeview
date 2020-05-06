@@ -1,4 +1,4 @@
-module rigma.dev/goview
+module rigma.dev/strangeview
 
 go 1.14
 
