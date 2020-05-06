@@ -19,16 +19,6 @@ type Facebase struct {
 	sync.Mutex
 }
 
-type Face struct {
-	name    string
-	matches [][]gocv.DMatch
-}
-
-type faceEntity struct {
-	keypoints   []gocv.KeyPoint
-	descriptors gocv.Mat
-}
-
 func NewFacebase() Facebase {
 	return Facebase{
 		detector: gocv.NewBRISK(),
@@ -67,7 +57,7 @@ func (f *Facebase) RemoveFace(name string) (error, bool) {
 	return nil, true
 }
 
-func (f *Facebase) Detect(input gocv.Mat) (err error, face *Face) {
+func (f *Facebase) Detect(input gocv.Mat) (err error, faces []Face) {
 	_, descriptors := f.detector.DetectAndCompute(input, gocv.NewMat())
 	matchesSet := make(map[string][][]gocv.DMatch)
 
@@ -86,36 +76,52 @@ func (f *Facebase) Detect(input gocv.Mat) (err error, face *Face) {
 			}
 		}
 
-		matchesSet[name] = filteredMatches
+		faces = append(faces, Face{
+			name:    name,
+			matches: filteredMatches,
+		})
 	}
 
-	var detectedName string
-	maxLen := 0
+	faces = filter(faces, func(face Face) bool {
+		return face.MatchesCount() >= DETECTION_THRESH
+	})
 
-	for name, matches := range matchesSet {
-		len := len(matches)
-		if len > maxLen {
-			detectedName = name
-			maxLen = len
-		}
-	}
-
-	if maxLen < DETECTION_THRESH {
+	if len(faces) == 0 {
 		err = errors.New("No faces are found!")
-		face = nil
+		faces = nil
 
 		return
 	}
 
 	err = nil
-	face = &Face{
-		name:    detectedName,
-		matches: matchesSet[detectedName],
-	}
 	return
 }
 
 func (f *Facebase) Close() {
 	f.detector.Close()
 	f.matcher.Close()
+}
+
+type Face struct {
+	name    string
+	matches [][]gocv.DMatch
+}
+
+func (f *Face) MatchesCount() int {
+	return len(f.matches)
+}
+
+type faceEntity struct {
+	keypoints   []gocv.KeyPoint
+	descriptors gocv.Mat
+}
+
+func filter(input []Face, test func(Face) bool) (output []Face) {
+	for _, face := range input {
+		if test(face) {
+			output = append(output, face)
+		}
+	}
+
+	return
 }

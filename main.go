@@ -74,11 +74,13 @@ func main() {
 			fmt.Printf("Saving face %s...\n", name)
 			facebase.AddFace(name, rawInput)
 		} else if key == 13 {
-			err, face := facebase.Detect(rawInput)
+			err, faces := facebase.Detect(rawInput)
 			if err != nil {
 				fmt.Println(err)
 			} else {
-				fmt.Printf("Face %s detected!\n", face.name)
+				for _, face := range faces {
+					fmt.Printf("Face %s detected!\n", face.name)
+				}
 			}
 		}
 	}
