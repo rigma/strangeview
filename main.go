@@ -36,15 +36,16 @@ func sobelFilter(input *gocv.Mat) (output gocv.Mat) {
 func main() {
 	fmt.Println("Launching StrangeView...")
 
-	webcam, err := gocv.VideoCaptureDevice(0)
+	err, camera := NewCamera()
 	if err != nil {
 		panic("Unable to retrieve the video capture device!")
 	}
 
+	camera.SetFlip(true)
 	window := gocv.NewWindow("StrangeView")
 	defer window.Close()
 
-	rawInput := gocv.NewMat()
+	var rawInput gocv.Mat
 	facebase := NewFacebase()
 	sobel := false
 
@@ -53,7 +54,7 @@ func main() {
 
 	for {
 		// Reading input from camera and converting into a grayscale image
-		webcam.Read(&rawInput)
+		rawInput = camera.GetFrame()
 		rawInput = blur(&rawInput)
 
 		if sobel {
