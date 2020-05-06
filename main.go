@@ -73,6 +73,13 @@ func main() {
 			name := namesgenerator.GetRandomName(0)
 			fmt.Printf("Saving face %s...\n", name)
 			facebase.AddFace(name, rawInput)
+		} else if key == 13 {
+			err, face := facebase.Detect(rawInput)
+			if err != nil {
+				fmt.Println(err)
+			} else {
+				fmt.Printf("Face %s detected!\n", face.name)
+			}
 		}
 	}
 }
