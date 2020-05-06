@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/docker/docker/pkg/namesgenerator"
 	"gocv.io/x/gocv"
 
 	"fmt"
@@ -42,18 +43,20 @@ func main() {
 	defer window.Close()
 
 	var input, output gocv.Mat
-	raw_input := gocv.NewMat()
+	rawInput := gocv.NewMat()
+	facebase := NewFacebase()
 
-	defer raw_input.Close()
+	defer rawInput.Close()
+	defer facebase.Close()
 	defer input.Close()
 	defer output.Close()
 
 	for {
 		// Reading input from camera and converting into a grayscale image
-		webcam.Read(&raw_input)
+		webcam.Read(&rawInput)
 
 		input = gocv.NewMat()
-		gocv.CvtColor(raw_input, &input, gocv.ColorRGBToGray)
+		gocv.CvtColor(rawInput, &input, gocv.ColorRGBToGray)
 
 		// Applying a filter on the image
 		output = sobelFilter(&input)
@@ -62,8 +65,14 @@ func main() {
 		window.IMShow(output)
 
 		// Checking if a key has been stroked
-		if window.WaitKey(1) >= 0 {
+		key := window.WaitKey(1)
+		if key == 27 {
+			fmt.Println("Exiting...")
 			break
+		} else if key == 32 {
+			name := namesgenerator.GetRandomName(0)
+			fmt.Printf("Saving face %s...\n", name)
+			facebase.AddFace(name, rawInput)
 		}
 	}
 }
