@@ -100,7 +100,7 @@ func main() {
 				fmt.Println(err)
 			} else {
 				for _, face := range faces {
-					fmt.Printf("Face %s detected!\n", face.name)
+					fmt.Printf("Face %s detected!\n", face.tag)
 				}
 			}
 		} else if key == 49 && (sobel || canvas) {

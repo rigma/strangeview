@@ -13,6 +13,8 @@ const (
 	LOWE_RATIO_THRESH = .75
 )
 
+// A database of "faces" that is storing, in memory, a collection of
+// tagged ORB keypoints and descriptors.
 type Facebase struct {
 	detector gocv.ORB
 	matcher  gocv.BFMatcher
@@ -20,6 +22,12 @@ type Facebase struct {
 	sync.Mutex
 }
 
+type faceEntity struct {
+	keypoints   []gocv.KeyPoint
+	descriptors gocv.Mat
+}
+
+// Instanciates a new facebase.
 func NewFacebase() Facebase {
 	return Facebase{
 		detector: gocv.NewORB(),
@@ -28,16 +36,18 @@ func NewFacebase() Facebase {
 	}
 }
 
-func (f *Facebase) AddFace(name string, face gocv.Mat) (error, bool) {
+// Add a face to the current facebase. You can run this action asynchronously
+// to avoid to wait the end of keypoints and descriptors computation.
+func (f *Facebase) AddFace(tag string, face gocv.Mat) (error, bool) {
 	f.Lock()
 	defer f.Unlock()
 
-	if _, alreadySaved := f.faces[name]; alreadySaved {
+	if _, alreadySaved := f.faces[tag]; alreadySaved {
 		return errors.New("Face already registered in the facebase!"), false
 	}
 
 	keypoints, descriptors := f.detector.DetectAndCompute(face, gocv.NewMat())
-	f.faces[name] = faceEntity{
+	f.faces[tag] = faceEntity{
 		keypoints:   keypoints,
 		descriptors: descriptors,
 	}
@@ -45,19 +55,21 @@ func (f *Facebase) AddFace(name string, face gocv.Mat) (error, bool) {
 	return nil, true
 }
 
-func (f *Facebase) RemoveFace(name string) (error, bool) {
+// Removes a face from the database.
+func (f *Facebase) RemoveFace(tag string) (error, bool) {
 	f.Lock()
 	defer f.Unlock()
 
-	if _, exists := f.faces[name]; !exists {
+	if _, exists := f.faces[tag]; !exists {
 		return errors.New("Face is not registered in database!"), false
 	}
 
-	delete(f.faces, name)
+	delete(f.faces, tag)
 
 	return nil, true
 }
 
+// Returns the list of tags stored into the facebase
 func (f *Facebase) Tags() (tags []string) {
 	for tag := range f.faces {
 		tags = append(tags, tag)
@@ -66,9 +78,13 @@ func (f *Facebase) Tags() (tags []string) {
 	return
 }
 
+// Returns a list of detected "face" in an input image
 func (f *Facebase) Detect(input gocv.Mat) (err error, faces []Face) {
 	_, descriptors := f.detector.DetectAndCompute(input, gocv.NewMat())
 	matchesSet := make(map[string][][]gocv.DMatch)
+
+	// We'll try to match the input descriptors with a KNN matching algorithm by deferring
+	// the tasks in parallel.
 	numCpu := runtime.GOMAXPROCS(0)
 	syncChan := make(chan bool, numCpu)
 
@@ -78,17 +94,21 @@ func (f *Facebase) Detect(input gocv.Mat) (err error, faces []Face) {
 
 		go func(faces []string, channel chan bool) {
 			for _, face := range faces {
-				matchesSet[face] = f.matcher.KnnMatch(descriptors, f.faces[face].descriptors, 2)
+				if _, ok := matchesSet[face]; !ok {
+					matchesSet[face] = f.matcher.KnnMatch(descriptors, f.faces[face].descriptors, 2)
+				}
 			}
 			channel <- true
 		}(f.Tags()[start:end], syncChan)
 	}
 
+	// Waiting for the tasks to be complete
 	for cpu := 0; cpu < numCpu; cpu++ {
 		<-syncChan
 	}
 	f.Unlock()
 
+	// Filtering the matches using the Lowe's ratio distance threshold
 	for name, matches := range matchesSet {
 		var filteredMatches [][]gocv.DMatch
 
@@ -99,11 +119,13 @@ func (f *Facebase) Detect(input gocv.Mat) (err error, faces []Face) {
 		}
 
 		faces = append(faces, Face{
-			name:    name,
+			tag:     name,
 			matches: filteredMatches,
 		})
 	}
 
+	// We'll only indicates that a face is detected when there is
+	// enough matches
 	faces = filter(faces, func(face Face) bool {
 		return face.MatchesCount() >= DETECTION_THRESH
 	})
@@ -119,23 +141,21 @@ func (f *Facebase) Detect(input gocv.Mat) (err error, faces []Face) {
 	return
 }
 
+// Close the database
 func (f *Facebase) Close() {
 	f.detector.Close()
 	f.matcher.Close()
 }
 
+// A face found into a frame.
 type Face struct {
-	name    string
+	tag     string
 	matches [][]gocv.DMatch
 }
 
+// Returns the number of matches in the current face
 func (f *Face) MatchesCount() int {
 	return len(f.matches)
-}
-
-type faceEntity struct {
-	keypoints   []gocv.KeyPoint
-	descriptors gocv.Mat
 }
 
 func filter(input []Face, test func(Face) bool) (output []Face) {
