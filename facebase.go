@@ -13,7 +13,7 @@ const (
 )
 
 type Facebase struct {
-	detector gocv.BRISK
+	detector gocv.ORB
 	matcher  gocv.BFMatcher
 	faces    map[string]faceEntity
 	sync.Mutex
@@ -21,7 +21,7 @@ type Facebase struct {
 
 func NewFacebase() Facebase {
 	return Facebase{
-		detector: gocv.NewBRISK(),
+		detector: gocv.NewORB(),
 		matcher:  gocv.NewBFMatcher(),
 		faces:    make(map[string]faceEntity),
 	}
