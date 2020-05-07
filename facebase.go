@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"runtime"
 	"sync"
 
 	"gocv.io/x/gocv"
@@ -57,13 +58,34 @@ func (f *Facebase) RemoveFace(name string) (error, bool) {
 	return nil, true
 }
 
+func (f *Facebase) Tags() (tags []string) {
+	for tag := range f.faces {
+		tags = append(tags, tag)
+	}
+
+	return
+}
+
 func (f *Facebase) Detect(input gocv.Mat) (err error, faces []Face) {
 	_, descriptors := f.detector.DetectAndCompute(input, gocv.NewMat())
 	matchesSet := make(map[string][][]gocv.DMatch)
+	numCpu := runtime.GOMAXPROCS(0)
+	syncChan := make(chan bool, numCpu)
 
 	f.Lock()
-	for name, face := range f.faces {
-		matchesSet[name] = f.matcher.KnnMatch(descriptors, face.descriptors, 2)
+	for cpu := 0; cpu < numCpu; cpu++ {
+		start, end := cpu*len(f.faces)/numCpu, (cpu+1)*len(f.faces)/numCpu
+
+		go func(faces []string, channel chan bool) {
+			for _, face := range faces {
+				matchesSet[face] = f.matcher.KnnMatch(descriptors, f.faces[face].descriptors, 2)
+			}
+			channel <- true
+		}(f.Tags()[start:end], syncChan)
+	}
+
+	for cpu := 0; cpu < numCpu; cpu++ {
+		<-syncChan
 	}
 	f.Unlock()
 
